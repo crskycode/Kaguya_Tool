@@ -24,5 +24,5 @@ MsgTool -b shift_jis gbk message.dat
 
 ### Tested
 
-+ Mama x Holic ~Miwaku no Mama to Ama Ama Kankei~
++ Mama x Holic ~Miwaku no Mama to Ama Ama Kankei\~
 
