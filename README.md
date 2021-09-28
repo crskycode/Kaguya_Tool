@@ -18,3 +18,7 @@ Import text and rebuild `message.dat`
 MsgTool -b shift_jis gbk message.dat
 ```
 
+### Environment
+
+[.NET Desktop Runtime 5.0](https://dotnet.microsoft.com/download/dotnet/5.0)
+
