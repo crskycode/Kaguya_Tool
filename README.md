@@ -22,3 +22,7 @@ MsgTool -b shift_jis gbk message.dat
 
 [.NET Desktop Runtime 5.0](https://dotnet.microsoft.com/download/dotnet/5.0)
 
+### Tested
+
++ Mama x Holic ~Miwaku no Mama to Ama Ama Kankei~
+
