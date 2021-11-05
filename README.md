@@ -40,3 +40,6 @@ The archive files created by this tool are not compressed and encrypted.
 
 + Mama x Holic ~Miwaku no Mama to Ama Ama Kankei\~
 
+#### Staff
+
+I would be very grateful if you can add me to the staff list of translation project.
