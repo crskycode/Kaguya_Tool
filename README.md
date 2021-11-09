@@ -32,6 +32,28 @@ Before using this tool, please use any `HexEditor` to check original archive for
 
 The archive files created by this tool are not compressed and encrypted.
 
+### ALP Tool
+
+Convert between ALP and PNG files.
+
+#### Convert ALP to PNG
+
+```
+ALP_Tool -e ap2 "c:\game\title.alp"
+```
+
+The tool will creates `c:\game\title.png` and `c:\game\title.metadata.json`.
+
+Do not delete the `.metadata.json`, it is used to create `ALP` from `PNG`.
+
+#### Convert PNG to ALP
+
+Make sure `c:\game\title.png` and `c:\game\title.metadata.json` exists.
+
+```
+ALP_Tool -c ap2 "c:\game\title.png"
+```
+
 ### Environment
 
 [.NET Desktop Runtime 5.0](https://dotnet.microsoft.com/download/dotnet/5.0)
