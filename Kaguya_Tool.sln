@@ -5,7 +5,9 @@ VisualStudioVersion = 16.0.31702.278
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MsgTool", "MsgTool\MsgTool.csproj", "{7D9CC4E4-98C0-4F33-9AC2-0A2138DB9FB9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Link6_Tool", "Link6_Tool\Link6_Tool.csproj", "{D7EFF591-98FB-404E-AA0A-ED08E183394B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Link6_Tool", "Link6_Tool\Link6_Tool.csproj", "{D7EFF591-98FB-404E-AA0A-ED08E183394B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ALP_Tool", "ALP_Tool\ALP_Tool.csproj", "{941994D0-EF4E-4D0D-9040-1C02F48AB275}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,6 +23,10 @@ Global
 		{D7EFF591-98FB-404E-AA0A-ED08E183394B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D7EFF591-98FB-404E-AA0A-ED08E183394B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D7EFF591-98FB-404E-AA0A-ED08E183394B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{941994D0-EF4E-4D0D-9040-1C02F48AB275}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{941994D0-EF4E-4D0D-9040-1C02F48AB275}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{941994D0-EF4E-4D0D-9040-1C02F48AB275}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{941994D0-EF4E-4D0D-9040-1C02F48AB275}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
