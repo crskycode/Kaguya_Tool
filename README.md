@@ -61,7 +61,3 @@ ALP_Tool -c ap2 "c:\game\title.png"
 ### Tested
 
 + Mama x Holic ~Miwaku no Mama to Ama Ama Kankei\~
-
-#### Staff
-
-I would be very grateful if you can add me to the staff list of translation project.
