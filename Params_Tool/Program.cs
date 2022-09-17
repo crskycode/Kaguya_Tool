@@ -9,8 +9,8 @@ namespace Params_Tool
         static void Main(string[] args)
         {
             var obj = new GameScriptParams();
-            obj.Load(@"D:\Game\MamaHolic\params.dat");
-            obj.DumpCgSet(@"D:\Game\MamaHolic\cgSet.json");
+            obj.Load(@"params.original.dat");
+            obj.SaveToJson(@"params.original.json");
         }
     }
 }
