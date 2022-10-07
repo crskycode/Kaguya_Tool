@@ -1192,23 +1192,16 @@ namespace Params_Tool
         {
             if (version >= 3.0)
             {
-                //Field_4 = reader.ReadInt16();
                 writer.Write(Convert.ToUInt16(Field_4));
             }
 
-            //ScreenWidth = reader.ReadInt32();
-            //ScreenHeight = reader.ReadInt32();
             writer.Write(ScreenWidth);
             writer.Write(ScreenHeight);
 
-            //Field_10 = reader.ReadByteLengthBlock();
             writer.WriteByteLengthBlock(Field_10);
 
             if (version >= 5.0)
             {
-                //MainTitle = reader.ReadWordLengthUnicodeString();
-                //SubTitle = reader.ReadWordLengthUnicodeString();
-                //CompanyInfo = reader.ReadWordLengthUnicodeString();
                 writer.WriteWordLengthUnicodeString(MainTitle);
                 writer.WriteWordLengthUnicodeString(SubTitle);
                 writer.WriteWordLengthUnicodeString(CompanyInfo);
@@ -1218,13 +1211,10 @@ namespace Params_Tool
                 throw new NotImplementedException();
             }
 
-            //Field_2C = reader.ReadByte();
             writer.Write(Convert.ToByte(Field_2C));
 
             if (version >= 5.0)
             {
-                //PlayerFirstName = reader.ReadWordLengthUnicodeString();
-                //PlayerLastName = reader.ReadWordLengthUnicodeString();
                 writer.WriteWordLengthUnicodeString(PlayerFirstName);
                 writer.WriteWordLengthUnicodeString(PlayerLastName);
             }
@@ -1232,34 +1222,24 @@ namespace Params_Tool
             {
                 throw new NotImplementedException();
             }
-            //Install.Deserialize(reader, version);
             Install.Serialize(writer, version);
 
-            //Field_44 = reader.ReadInt32();
-            //Field_48 = reader.ReadInt32();
-            //Field_4C = reader.ReadInt32();
             writer.Write(Field_44);
             writer.Write(Field_48);
             writer.Write(Field_4C);
 
             if (version >= 5.3)
             {
-                //Field_50 = reader.ReadInt32();
                 writer.Write(Field_50);
             }
 
             if (version >= 5.5)
             {
-                //Field_54 = reader.ReadByte();
                 writer.Write(Convert.ToByte(Field_54));
             }
 
             if (version >= 5.2)
             {
-                //if (reader.ReadByte() != 0)
-                //{
-                //    SoundSettings.Deserialize(reader, version);
-                //}
                 if (SoundSettings != null && !string.IsNullOrEmpty(SoundSettings.Name))
                 {
                     writer.Write(true);
@@ -1270,10 +1250,6 @@ namespace Params_Tool
                     writer.Write(false);
                 }
 
-                //if (reader.ReadByte() != 0)
-                //{
-                //    ColorSettings.Deserialize(reader, version);
-                //}
                 if (ColorSettings != null && !string.IsNullOrEmpty(ColorSettings.Name))
                 {
                     writer.Write(true);
@@ -1284,10 +1260,6 @@ namespace Params_Tool
                     writer.Write(false);
                 }
 
-                //if (reader.ReadByte() != 0)
-                //{
-                //    WindowSettings.Deserialize(reader, version);
-                //}
                 if (WindowSettings != null && !string.IsNullOrEmpty(WindowSettings.Name))
                 {
                     writer.Write(true);
@@ -1305,58 +1277,41 @@ namespace Params_Tool
 
             if (version >= 5.3)
             {
-                //Field_A0.Deserialize(reader, version);
                 Field_A0.Serialize(writer, version);
             }
 
-            //var length = reader.ReadInt32();
-            //BmpKey = reader.ReadBytes(length);
             writer.Write(BmpKey.Length);
             writer.Write(BmpKey);
 
             if (version >= 5.2)
             {
-                //Demos.Deserialize(reader, version);
                 Demos.Serialize(writer, version);
             }
 
             if (version >= 5.1)
             {
-                //Field_C8.Deserialize(reader, version);
-                //Places.Deserialize(reader, version);
                 Field_C8.Serialize(writer, version);
                 Places.Serialize(writer, version);
             }
 
             if (version >= 5.4)
             {
-                //Field_E0 = reader.ReadWordLengthUnicodeString();
-                //Field_E4.Deserialize(reader, version);
                 writer.WriteWordLengthUnicodeString(Field_E0);
                 Field_E4.Serialize(writer, version);
             }
 
             if (version >= 5.3)
             {
-                //Thumbnails.Deserialize(reader, version);
                 Thumbnails.Serialize(writer, version);
             }
 
-            //var sceneCount = reader.ReadInt32();
             writer.Write(Scenes.Count);
-
-            //Scenes.Clear();
-            //Scenes.EnsureCapacity(sceneCount);
 
             for (var i = 0; i < Scenes.Count; i++)
             {
-                //var s = reader.ReadStringField();
-                //Scenes.Add(s);
                 writer.WriteStringField(Scenes[i]);
             }
 
-            //RegistCgs.Deserialize(reader, version);
-            //RegistScenes.Deserialize(reader, version);
             RegistCgs.Serialize(writer, version);
             RegistScenes.Serialize(writer, version);
         }
