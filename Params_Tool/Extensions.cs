@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -13,6 +14,12 @@ namespace Params_Tool
         {
             var length = reader.ReadByte();
             return reader.ReadBytes(length);
+        }
+
+        public static void WriteByteLengthBlock(this BinaryWriter writer, byte[] data)
+        {
+            writer.Write(Convert.ToByte(data.Length));
+            writer.Write(data);
         }
 
         public static string ReadByteLengthAnsiString(this BinaryReader reader, Encoding encoding)
@@ -75,6 +82,12 @@ namespace Params_Tool
             return reader.ReadWordLengthUnicodeString();
         }
 
+        public static void WriteStringField(this BinaryWriter writer, string s)
+        {
+            writer.Write(0);
+            writer.WriteWordLengthUnicodeString(s);
+        }
+
         public static int ReadInt32Field(this BinaryReader reader)
         {
             var type = reader.ReadInt32();
@@ -85,6 +98,12 @@ namespace Params_Tool
             }
 
             return reader.ReadInt32();
+        }
+
+        public static void WriteInt32Field(this BinaryWriter writer, int value)
+        {
+            writer.Write(1);
+            writer.Write(value);
         }
 
         public static Tuple<int, int> ReadCoord2dField(this BinaryReader reader)
@@ -100,6 +119,13 @@ namespace Params_Tool
             var y = reader.ReadInt32();
 
             return Tuple.Create(x, y);
+        }
+
+        public static void WriteCoord2dField(this BinaryWriter writer, int x, int y)
+        {
+            writer.Write(2);
+            writer.Write(x);
+            writer.Write(y);
         }
     }
 }

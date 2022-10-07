@@ -1,12 +1,6 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
+﻿using Newtonsoft.Json;
 using System.Diagnostics;
-using System.IO;
-using System.Linq;
 using System.Text;
-using System.Text.Encodings.Web;
-using System.Text.Json;
 
 #pragma warning disable IDE0017
 #pragma warning disable IDE0052
@@ -15,7 +9,7 @@ using System.Text.Json;
 
 namespace Params_Tool
 {
-    class GameScriptParams
+    public class GameScriptParams
     {
         #region Fields
 
@@ -35,6 +29,14 @@ namespace Params_Tool
             }
         }
 
+        public void Save(string filePath)
+        {
+            using (var writer = new BinaryWriter(File.Create(filePath)))
+            {
+                Write(writer);
+            }
+        }
+
         void Read(BinaryReader reader)
         {
             var versions = new double[] { 5.7, 5.6, 5.5, 5.4, 5.3, 5.2, 5.1, 5.0, 4.0, 3.0, 2.0 };
@@ -43,7 +45,12 @@ namespace Params_Tool
 
             foreach (var version in versions)
             {
-                var signature = Encoding.ASCII.GetBytes($"[SCR-PARAMS]v0{version}");
+                var signature = Encoding.ASCII.GetBytes($"[SCR-PARAMS]v0{version:F1}");
+
+                if (signature.Length != 17)
+                {
+                    throw new Exception("Bad version number.");
+                }
 
                 reader.BaseStream.Position = 0;
 
@@ -59,16 +66,27 @@ namespace Params_Tool
                 throw new Exception("The file is not a valid game script parameters file.");
             }
 
-            GameSystem = new GameScriptGameSystem();
             GameSystem.Deserialize(reader, Version);
-
-            Pattern = new GameScriptPattern();
             Pattern.Deserialize(reader, Version);
-
-            SceneLabel = new GameScriptSceneLabel();
             SceneLabel.Deserialize(reader, Version);
 
             Debug.Assert(reader.BaseStream.Position == reader.BaseStream.Length);
+        }
+
+        void Write(BinaryWriter writer)
+        {
+            var signature = Encoding.ASCII.GetBytes($"[SCR-PARAMS]v0{Version:F1}");
+
+            if (signature.Length != 17)
+            {
+                throw new Exception("Bad version number.");
+            }
+
+            writer.Write(signature);
+
+            GameSystem.Serialize(writer, Version);
+            Pattern.Serialize(writer, Version);
+            SceneLabel.Serialize(writer, Version);
         }
 
         #region CG information
@@ -141,29 +159,32 @@ namespace Params_Tool
 
         public void SaveToJson(string filePath)
         {
-            var options = new JsonSerializerOptions {
-                //IncludeFields = true,
-                WriteIndented = true,
-                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+            var settings = new JsonSerializerSettings
+            {
+                Formatting = Formatting.Indented,
+                TypeNameHandling = TypeNameHandling.Auto,
+                TypeNameAssemblyFormatHandling = TypeNameAssemblyFormatHandling.Simple
             };
-            var json = JsonSerializer.Serialize(this, options);
+
+            var json = JsonConvert.SerializeObject(this, settings);
+
             File.WriteAllText(filePath, json);
         }
     }
 
-    class GameScriptGameSystem
+    public class GameScriptGameSystem
     {
         #region Classes
 
+        public class CInstallItem
+        {
+            public string Name { get; set; } = string.Empty;
+            public string Source { get; set; } = string.Empty;
+        }
+
         public class CInstall
         {
-            public class Item
-            {
-                public string Name { get; set; } = string.Empty;
-                public string Source { get; set; } = string.Empty;
-            }
-
-            public List<Item> Collection { get; set; } = new();
+            public List<CInstallItem> Collection { get; set; } = new();
 
             public void Deserialize(BinaryReader reader, double version)
             {
@@ -176,7 +197,7 @@ namespace Params_Tool
                 {
                     if (version >= 5.0)
                     {
-                        var item = new Item
+                        var item = new CInstallItem
                         {
                             Name = reader.ReadWordLengthUnicodeString(),
                             Source = reader.ReadWordLengthUnicodeString()
@@ -190,19 +211,37 @@ namespace Params_Tool
                     }
                 }
             }
+
+            public void Serialize(BinaryWriter writer, double version)
+            {
+                writer.Write(Convert.ToByte(Collection.Count));
+
+                for (var i = 0; i < Collection.Count; i++)
+                {
+                    if (version >= 5.0)
+                    {
+                        writer.WriteWordLengthUnicodeString(Collection[i].Name);
+                        writer.WriteWordLengthUnicodeString(Collection[i].Source);
+                    }
+                    else
+                    {
+                        throw new NotImplementedException();
+                    }
+                }
+            }
         }
 
-        public class SettingTag
+        public class CSettingTagItem
         {
-            public class Item
-            {
-                public string Key { get; set; } = string.Empty;
-                public string Value { get; set; } = string.Empty;
-            }
+            public string Key { get; set; } = string.Empty;
+            public string Value { get; set; } = string.Empty;
+        }
 
+        public class CSettingTag
+        {
             public string Name { get; set; } = string.Empty;
-            public List<Item> Values { get; set; } = new();
-            public List<SettingTag> Children { get; set; } = new();
+            public List<CSettingTagItem> Values { get; set; } = new();
+            public List<CSettingTag> Children { get; set; } = new();
 
             public void Deserialize(BinaryReader reader, double version)
             {
@@ -215,7 +254,7 @@ namespace Params_Tool
 
                 for (var i = 0; i < count; i++)
                 {
-                    var item = new Item
+                    var item = new CSettingTagItem
                     {
                         Key = reader.ReadWordLengthUnicodeString(),
                         Value = reader.ReadWordLengthUnicodeString()
@@ -231,9 +270,29 @@ namespace Params_Tool
 
                 for (var i = 0; i < count; i++)
                 {
-                    var child = new SettingTag();
+                    var child = new CSettingTag();
                     child.Deserialize(reader, version);
                     Children.Add(child);
+                }
+            }
+
+            public void Serialize(BinaryWriter writer, double version)
+            {
+                writer.WriteWordLengthUnicodeString(Name);
+
+                writer.Write(Values.Count);
+
+                for (var i = 0; i < Values.Count; i++)
+                {
+                    writer.WriteWordLengthUnicodeString(Values[i].Key);
+                    writer.WriteWordLengthUnicodeString(Values[i].Value);
+                }
+
+                writer.Write(Children.Count);
+
+                for (var i = 0; i < Children.Count; i++)
+                {
+                    Children[i].Serialize(writer, version);
                 }
             }
         }
@@ -249,6 +308,13 @@ namespace Params_Tool
                 Field_0 = reader.ReadInt32();
                 Field_4 = reader.ReadInt32();
                 Field_8 = reader.ReadInt32();
+            }
+
+            public void Serialize(BinaryWriter writer, double version)
+            {
+                writer.Write(Field_0);
+                writer.Write(Field_4);
+                writer.Write(Field_8);
             }
         }
 
@@ -270,6 +336,16 @@ namespace Params_Tool
                     Collection.Add(item);
                 }
             }
+
+            public void Serialize(BinaryWriter writer, double version)
+            {
+                writer.Write(Collection.Count);
+
+                for (var i = 0; i < Collection.Count; i++)
+                {
+                    Collection[i].Serialize(writer, version);
+                }
+            }
         }
 
         public class Demo
@@ -277,6 +353,7 @@ namespace Params_Tool
             public interface ICmd
             {
                 void Deserialize(BinaryReader reader, double version);
+                void Serialize(BinaryWriter writer, double version);
             }
 
             #region Commands
@@ -286,11 +363,19 @@ namespace Params_Tool
                 public void Deserialize(BinaryReader reader, double version)
                 {
                 }
+
+                public void Serialize(BinaryWriter writer, double version)
+                {
+                }
             }
 
             public class CmdNext : ICmd
             {
                 public void Deserialize(BinaryReader reader, double version)
+                {
+                }
+
+                public void Serialize(BinaryWriter writer, double version)
                 {
                 }
             }
@@ -304,6 +389,12 @@ namespace Params_Tool
                 {
                     Field_4 = reader.ReadByte();
                     Field_8 = reader.ReadInt32();
+                }
+
+                public void Serialize(BinaryWriter writer, double version)
+                {
+                    writer.Write(Convert.ToByte(Field_4));
+                    writer.Write(Field_8);
                 }
             }
 
@@ -319,6 +410,13 @@ namespace Params_Tool
                     Field_5 = reader.ReadByte();
                     Field_8 = reader.ReadByteLengthUnicodeString();
                 }
+
+                public void Serialize(BinaryWriter writer, double version)
+                {
+                    writer.Write(Convert.ToByte(Field_4));
+                    writer.Write(Convert.ToByte(Field_5));
+                    writer.WriteByteLengthAnsiString(Field_8, Encoding.Unicode);
+                }
             }
 
             public class CmdLoad : ICmd
@@ -330,6 +428,12 @@ namespace Params_Tool
                 {
                     Field_4 = reader.ReadByte();
                     Field_8 = reader.ReadByteLengthUnicodeString();
+                }
+
+                public void Serialize(BinaryWriter writer, double version)
+                {
+                    writer.Write(Convert.ToByte(Field_4));
+                    writer.WriteByteLengthAnsiString(Field_8, Encoding.Unicode);
                 }
             }
 
@@ -345,6 +449,13 @@ namespace Params_Tool
                     Field_8 = reader.ReadInt32();
                     Field_C = reader.ReadByteLengthUnicodeString();
                 }
+
+                public void Serialize(BinaryWriter writer, double version)
+                {
+                    writer.WriteByteLengthAnsiString(Field_4, Encoding.Unicode);
+                    writer.Write(Field_8);
+                    writer.WriteByteLengthAnsiString(Field_C, Encoding.Unicode);
+                }
             }
 
             public class CmdDisp : ICmd
@@ -357,11 +468,21 @@ namespace Params_Tool
                     Field_4 = reader.ReadByte();
                     Field_8 = reader.ReadByte();
                 }
+
+                public void Serialize(BinaryWriter writer, double version)
+                {
+                    writer.Write(Convert.ToByte(Field_4));
+                    writer.Write(Convert.ToByte(Field_8));
+                }
             }
 
             public class CmdUpdate : ICmd
             {
                 public void Deserialize(BinaryReader reader, double version)
+                {
+                }
+
+                public void Serialize(BinaryWriter writer, double version)
                 {
                 }
             }
@@ -383,6 +504,16 @@ namespace Params_Tool
                     Field_10 = reader.ReadInt32();
                     Field_14 = reader.ReadInt32();
                     Field_18 = reader.ReadInt32();
+                }
+
+                public void Serialize(BinaryWriter writer, double version)
+                {
+                    writer.Write(Convert.ToByte(Field_4));
+                    writer.Write(Convert.ToByte(Field_8));
+                    writer.Write(Field_C);
+                    writer.Write(Field_10);
+                    writer.Write(Field_14);
+                    writer.Write(Field_18);
                 }
             }
 
@@ -443,6 +574,56 @@ namespace Params_Tool
                     Cmds.Add(cmd);
                 }
             }
+
+            public void Serialize(BinaryWriter writer, double version)
+            {
+                writer.WriteWordLengthUnicodeString(Name);
+
+                writer.Write(Encoding.ASCII.GetBytes("[Demo3.0]"));
+
+                writer.Write(Convert.ToUInt16(Cmds.Count));
+
+                foreach (var cmd in Cmds)
+                {
+                    var code = cmd switch
+                    {
+                        CmdEnd => 0,
+                        CmdNext => 1,
+                        CmdWait => 2,
+                        CmdSound => 3,
+                        CmdLoad => 4,
+                        CmdTransit => 5,
+                        CmdDisp => 6,
+                        CmdUpdate => 7,
+                        CmdMove => 8,
+                        _ => -1
+                    };
+
+                    if (code == -1)
+                    {
+                        throw new Exception("未対応のデモデータのコマンドです！");
+                    }
+
+                    long pos1, pos2;
+
+                    pos1 = writer.BaseStream.Position;
+
+                    writer.Write(Convert.ToByte(code)); // code
+                    writer.Write(Convert.ToByte(0)); // size
+
+                    cmd.Serialize(writer, version);
+
+                    pos2 = writer.BaseStream.Position;
+
+                    var size = pos2 - pos1;
+
+                    // Update size
+                    writer.BaseStream.Position = pos1 + 1;
+                    writer.Write(Convert.ToByte(size));
+
+                    writer.BaseStream.Position = pos2;
+                }
+            }
         }
 
         public class DemoCollection
@@ -463,6 +644,16 @@ namespace Params_Tool
                     Collection.Add(item);
                 }
             }
+
+            public void Serialize(BinaryWriter writer, double version)
+            {
+                writer.Write(Convert.ToByte(Collection.Count));
+
+                foreach (var item in Collection)
+                {
+                    item.Serialize(writer, version);
+                }
+            }
         }
 
         public class StringList
@@ -480,6 +671,16 @@ namespace Params_Tool
                 {
                     var item = reader.ReadWordLengthUnicodeString();
                     Collection.Add(item);
+                }
+            }
+
+            public void Serialize(BinaryWriter writer, double version)
+            {
+                writer.Write(Collection.Count);
+
+                foreach (var item in Collection)
+                {
+                    writer.WriteWordLengthUnicodeString(item);
                 }
             }
         }
@@ -502,6 +703,16 @@ namespace Params_Tool
                     Collection.Add(item);
                 }
             }
+
+            public void Serialize(BinaryWriter writer, double version)
+            {
+                writer.Write(Collection.Count);
+
+                foreach (var item in Collection)
+                {
+                    item.Serialize(writer, version);
+                }
+            }
         }
 
         public class Place
@@ -513,6 +724,12 @@ namespace Params_Tool
             {
                 Field_0 = reader.ReadWordLengthUnicodeString();
                 Field_4 = reader.ReadInt32();
+            }
+
+            public void Serialize(BinaryWriter writer, double version)
+            {
+                writer.WriteWordLengthUnicodeString(Field_0);
+                writer.Write(Field_4);
             }
         }
 
@@ -534,6 +751,16 @@ namespace Params_Tool
                     Collection.Add(item);
                 }
             }
+
+            public void Serialize(BinaryWriter writer, double version)
+            {
+                writer.Write(Collection.Count);
+
+                foreach (var item in Collection)
+                {
+                    item.Serialize(writer, version);
+                }
+            }
         }
 
         public class Thumbnail
@@ -550,7 +777,7 @@ namespace Params_Tool
                 i++;
 
                 List.Clear();
-                List.EnsureCapacity(7);
+                List.EnsureCapacity(7); // fixed
 
                 for (var j = 0; j < 7; j++)
                 {
@@ -565,6 +792,20 @@ namespace Params_Tool
                 i++;
                 Field_28 = reader.ReadInt32Field();
                 i++;
+            }
+
+            public void Serialize(BinaryWriter writer, double version)
+            {
+                writer.WriteStringField(Name);
+
+                for (var j = 0; j < 7; j++)
+                {
+                    writer.WriteStringField(List[j]);
+                }
+
+                writer.WriteInt32Field(Field_20);
+                writer.WriteInt32Field(Field_24);
+                writer.WriteInt32Field(Field_28);
             }
         }
 
@@ -584,6 +825,16 @@ namespace Params_Tool
                     var item = new Thumbnail();
                     item.Deserialize(reader, version, ref i);
                     Collection.Add(item);
+                }
+            }
+
+            public void Serialize(BinaryWriter writer, double version)
+            {
+                writer.Write(Collection.Count * 11);
+
+                foreach (var item in Collection)
+                {
+                    item.Serialize(writer, version);
                 }
             }
         }
@@ -631,6 +882,20 @@ namespace Params_Tool
                     Collection.Add(item);
                 }
             }
+
+            public void Serialize(BinaryWriter writer, double version)
+            {
+                writer.WriteStringField(Name);
+
+                writer.WriteInt32Field(Collection.Count);
+
+                foreach (var item in Collection)
+                {
+                    writer.WriteStringField(item.Field_0);
+                    writer.WriteCoord2dField(item.Field_4, item.Field_8);
+                    writer.WriteInt32Field(item.Field_C);
+                }
+            }
         }
 
         public class RegistCgCollection
@@ -649,6 +914,18 @@ namespace Params_Tool
                     var item = new RegistCg();
                     item.Deserialize(reader, version, ref i);
                     Collection.Add(item);
+                }
+            }
+
+            public void Serialize(BinaryWriter writer, double version)
+            {
+                var count = Collection.Sum(a => 2 + 3 * a.Collection.Count);
+
+                writer.Write(count);
+
+                foreach (var item in Collection)
+                {
+                    item.Serialize(writer, version);
                 }
             }
         }
@@ -688,6 +965,19 @@ namespace Params_Tool
                     Collection.Add(item);
                 }
             }
+
+            public void Serialize(BinaryWriter writer, double version)
+            {
+                writer.WriteStringField(Name);
+
+                writer.WriteInt32Field(Collection.Count);
+
+                foreach (var item in Collection)
+                {
+                    writer.WriteStringField(item.Name);
+                    writer.WriteStringField(item.File);
+                }
+            }
         }
 
         public class RegistSceneCollection
@@ -706,6 +996,18 @@ namespace Params_Tool
                     var item = new RegistScene();
                     item.Deserialize(reader, version, ref i);
                     Collection.Add(item);
+                }
+            }
+
+            public void Serialize(BinaryWriter writer, double version)
+            {
+                var count = Collection.Sum(a => 2 + 2 * a.Collection.Count);
+
+                writer.Write(count);
+
+                foreach (var item in Collection)
+                {
+                    item.Serialize(writer, version);
                 }
             }
         }
@@ -730,9 +1032,9 @@ namespace Params_Tool
         public int Field_4C { get; set; }
         public int Field_50 { get; set; }
         public int Field_54 { get; set; }
-        public SettingTag ColorSettings { get; set; } = new();
-        public SettingTag SoundSettings { get; set; } = new();
-        public SettingTag WindowSettings { get; set; } = new();
+        public CSettingTag ColorSettings { get; set; } = new();
+        public CSettingTag SoundSettings { get; set; } = new();
+        public CSettingTag WindowSettings { get; set; } = new();
         public StructA0Collection Field_A0 { get; set; } = new();
         public byte[] BmpKey { get; set; } = Array.Empty<byte>();
         public DemoCollection Demos { get; set; } = new();
@@ -864,9 +1166,182 @@ namespace Params_Tool
             RegistCgs.Deserialize(reader, version);
             RegistScenes.Deserialize(reader, version);
         }
+
+        public void Serialize(BinaryWriter writer, double version)
+        {
+            if (version >= 3.0)
+            {
+                //Field_4 = reader.ReadInt16();
+                writer.Write(Convert.ToUInt16(Field_4));
+            }
+
+            //ScreenWidth = reader.ReadInt32();
+            //ScreenHeight = reader.ReadInt32();
+            writer.Write(ScreenWidth);
+            writer.Write(ScreenHeight);
+
+            //Field_10 = reader.ReadByteLengthBlock();
+            writer.WriteByteLengthBlock(Field_10);
+
+            if (version >= 5.0)
+            {
+                //MainTitle = reader.ReadWordLengthUnicodeString();
+                //SubTitle = reader.ReadWordLengthUnicodeString();
+                //CompanyInfo = reader.ReadWordLengthUnicodeString();
+                writer.WriteWordLengthUnicodeString(MainTitle);
+                writer.WriteWordLengthUnicodeString(SubTitle);
+                writer.WriteWordLengthUnicodeString(CompanyInfo);
+            }
+            else
+            {
+                throw new NotImplementedException();
+            }
+
+            //Field_2C = reader.ReadByte();
+            writer.Write(Convert.ToByte(Field_2C));
+
+            if (version >= 5.0)
+            {
+                //PlayerFirstName = reader.ReadWordLengthUnicodeString();
+                //PlayerLastName = reader.ReadWordLengthUnicodeString();
+                writer.WriteWordLengthUnicodeString(PlayerFirstName);
+                writer.WriteWordLengthUnicodeString(PlayerLastName);
+            }
+            else
+            {
+                throw new NotImplementedException();
+            }
+            //Install.Deserialize(reader, version);
+            Install.Serialize(writer, version);
+
+            //Field_44 = reader.ReadInt32();
+            //Field_48 = reader.ReadInt32();
+            //Field_4C = reader.ReadInt32();
+            writer.Write(Field_44);
+            writer.Write(Field_48);
+            writer.Write(Field_4C);
+
+            if (version >= 5.3)
+            {
+                //Field_50 = reader.ReadInt32();
+                writer.Write(Field_50);
+            }
+
+            if (version >= 5.5)
+            {
+                //Field_54 = reader.ReadByte();
+                writer.Write(Convert.ToByte(Field_54));
+            }
+
+            if (version >= 5.2)
+            {
+                //if (reader.ReadByte() != 0)
+                //{
+                //    SoundSettings.Deserialize(reader, version);
+                //}
+                if (SoundSettings != null && !string.IsNullOrEmpty(SoundSettings.Name))
+                {
+                    writer.Write(true);
+                    SoundSettings.Serialize(writer, version);
+                }
+                else
+                {
+                    writer.Write(false);
+                }
+
+                //if (reader.ReadByte() != 0)
+                //{
+                //    ColorSettings.Deserialize(reader, version);
+                //}
+                if (ColorSettings != null && !string.IsNullOrEmpty(ColorSettings.Name))
+                {
+                    writer.Write(true);
+                    ColorSettings.Serialize(writer, version);
+                }
+                else
+                {
+                    writer.Write(false);
+                }
+
+                //if (reader.ReadByte() != 0)
+                //{
+                //    WindowSettings.Deserialize(reader, version);
+                //}
+                if (WindowSettings != null && !string.IsNullOrEmpty(WindowSettings.Name))
+                {
+                    writer.Write(true);
+                    WindowSettings.Serialize(writer, version);
+                }
+                else
+                {
+                    writer.Write(false);
+                }
+            }
+            else
+            {
+                throw new NotImplementedException();
+            }
+
+            if (version >= 5.3)
+            {
+                //Field_A0.Deserialize(reader, version);
+                Field_A0.Serialize(writer, version);
+            }
+
+            //var length = reader.ReadInt32();
+            //BmpKey = reader.ReadBytes(length);
+            writer.Write(BmpKey.Length);
+            writer.Write(BmpKey);
+
+            if (version >= 5.2)
+            {
+                //Demos.Deserialize(reader, version);
+                Demos.Serialize(writer, version);
+            }
+
+            if (version >= 5.1)
+            {
+                //Field_C8.Deserialize(reader, version);
+                //Places.Deserialize(reader, version);
+                Field_C8.Serialize(writer, version);
+                Places.Serialize(writer, version);
+            }
+
+            if (version >= 5.4)
+            {
+                //Field_E0 = reader.ReadWordLengthUnicodeString();
+                //Field_E4.Deserialize(reader, version);
+                writer.WriteWordLengthUnicodeString(Field_E0);
+                Field_E4.Serialize(writer, version);
+            }
+
+            if (version >= 5.3)
+            {
+                //Thumbnails.Deserialize(reader, version);
+                Thumbnails.Serialize(writer, version);
+            }
+
+            //var sceneCount = reader.ReadInt32();
+            writer.Write(Scenes.Count);
+
+            //Scenes.Clear();
+            //Scenes.EnsureCapacity(sceneCount);
+
+            for (var i = 0; i < Scenes.Count; i++)
+            {
+                //var s = reader.ReadStringField();
+                //Scenes.Add(s);
+                writer.WriteStringField(Scenes[i]);
+            }
+
+            //RegistCgs.Deserialize(reader, version);
+            //RegistScenes.Deserialize(reader, version);
+            RegistCgs.Serialize(writer, version);
+            RegistScenes.Serialize(writer, version);
+        }
     }
 
-    class GameScriptPattern
+    public class GameScriptPattern
     {
         public class FileGroup
         {
@@ -885,6 +1360,16 @@ namespace Params_Tool
                     Items.Add(s);
                 }
             }
+
+            public void Serialize(BinaryWriter writer, double version)
+            {
+                writer.Write(Items.Count);
+
+                foreach (var item in Items)
+                {
+                    writer.WriteWordLengthUnicodeString(item);
+                }
+            }
         }
 
         public class ExcPosition
@@ -898,6 +1383,13 @@ namespace Params_Tool
                 Name = reader.ReadWordLengthUnicodeString();
                 Field_4 = reader.ReadInt32();
                 Field_8 = reader.ReadInt32();
+            }
+
+            public void Serialize(BinaryWriter writer, double version)
+            {
+                writer.WriteWordLengthUnicodeString(Name);
+                writer.Write(Field_4);
+                writer.Write(Field_8);
             }
         }
 
@@ -929,6 +1421,25 @@ namespace Params_Tool
                     throw new Exception("ファイル名リストのタイプが未対応！！");
                 }
             }
+
+            public void Serialize(BinaryWriter writer, double version)
+            {
+                writer.WriteWordLengthUnicodeString(Name);
+                writer.Write(Convert.ToByte(Type));
+
+                if (Type == 1 && FileGroup != null)
+                {
+                    FileGroup.Serialize(writer, version);
+                }
+                else if (Type == 2 && ExcPosition != null)
+                {
+                    ExcPosition.Serialize(writer, version);
+                }
+                else if (Type != 0)
+                {
+                    throw new Exception("ファイル名リストのタイプが未対応！！");
+                }
+            }
         }
 
         public class FileNameListCollection
@@ -947,6 +1458,16 @@ namespace Params_Tool
                     var item = new FileNameList();
                     item.Deserialize(reader, version);
                     Items.Add(item);
+                }
+            }
+
+            public void Serialize(BinaryWriter writer, double version)
+            {
+                writer.Write(Items.Count);
+
+                foreach (var item in Items)
+                {
+                    item.Serialize(writer, version);
                 }
             }
         }
@@ -968,6 +1489,16 @@ namespace Params_Tool
                     Items.Add(val);
                 }
             }
+
+            public void Serialize(BinaryWriter writer, double version)
+            {
+                writer.Write(Convert.ToByte(Items.Count));
+
+                foreach (var item in Items)
+                {
+                    writer.Write(item);
+                }
+            }
         }
 
         public class FileMapCollection
@@ -986,6 +1517,16 @@ namespace Params_Tool
                     var item = new ByteLengthIntCollection();
                     item.Deserialize(reader, version);
                     Items.Add(item);
+                }
+            }
+
+            public void Serialize(BinaryWriter writer, double version)
+            {
+                writer.Write(Items.Count);
+
+                foreach (var item in Items)
+                {
+                    item.Serialize(writer, version);
                 }
             }
         }
@@ -1018,6 +1559,24 @@ namespace Params_Tool
                     Items.Add(val);
                 }
             }
+
+            public void Serialize(BinaryWriter writer, double version)
+            {
+                if (version >= 5.0)
+                    writer.WriteWordLengthUnicodeString(Name);
+                else
+                    throw new NotImplementedException();
+
+                if (version >= 5.6)
+                    writer.Write(Convert.ToUInt16(Items.Count));
+                else
+                    writer.Write(Convert.ToByte(Items.Count));
+
+                foreach (var item in Items)
+                {
+                    writer.Write(item);
+                }
+            }
         }
 
         public class GroupCollection
@@ -1036,6 +1595,16 @@ namespace Params_Tool
                     var item = new Group();
                     item.Deserialize(reader, version);
                     Items.Add(item);
+                }
+            }
+
+            public void Serialize(BinaryWriter writer, double version)
+            {
+                writer.Write(Items.Count);
+
+                foreach (var item in Items)
+                {
+                    item.Serialize(writer, version);
                 }
             }
         }
@@ -1067,9 +1636,31 @@ namespace Params_Tool
             Cg.Deserialize(reader, version);
             Bg.Deserialize(reader, version);
         }
+
+        public void Serialize(BinaryWriter writer, double version)
+        {
+            if (version < 5.0)
+            {
+                writer.Write(Convert.ToByte(XorKey));
+            }
+
+            if (version < 4.0)
+            {
+                throw new NotImplementedException();
+            }
+
+            if (version >= 5.7)
+            {
+                Files.Serialize(writer, version);
+            }
+
+            FileMap.Serialize(writer, version);
+            Cg.Serialize(writer, version);
+            Bg.Serialize(writer, version);
+        }
     }
 
-    class GameScriptSceneLabel
+    public class GameScriptSceneLabel
     {
         public class Scene
         {
@@ -1082,6 +1673,13 @@ namespace Params_Tool
                 Name = reader.ReadWordLengthUnicodeString();
                 Field_4 = reader.ReadInt32();
                 Field_8 = reader.ReadInt32();
+            }
+
+            public void Serialize(BinaryWriter writer, double version)
+            {
+                writer.WriteWordLengthUnicodeString(Name);
+                writer.Write(Field_4);
+                writer.Write(Field_8);
             }
         }
 
@@ -1103,6 +1701,16 @@ namespace Params_Tool
                     Collection.Add(item);
                 }
             }
+
+            public void Serialize(BinaryWriter writer, double version)
+            {
+                writer.Write(Collection.Count);
+
+                foreach (var item in Collection)
+                {
+                    item.Serialize(writer, version);
+                }
+            }
         }
 
         public SceneCollection Scenes { get; set; } = new();
@@ -1110,6 +1718,11 @@ namespace Params_Tool
         public void Deserialize(BinaryReader reader, double version)
         {
             Scenes.Deserialize(reader, version);
+        }
+
+        public void Serialize(BinaryWriter writer, double version)
+        {
+            Scenes.Serialize(writer, version);
         }
     }
 }
