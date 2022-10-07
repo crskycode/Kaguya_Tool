@@ -170,6 +170,27 @@ namespace Params_Tool
 
             File.WriteAllText(filePath, json);
         }
+
+        public static GameScriptParams ReadFromJson(string filePath)
+        {
+            var json = File.ReadAllText(filePath);
+
+            var settings = new JsonSerializerSettings
+            {
+                Formatting = Formatting.Indented,
+                TypeNameHandling = TypeNameHandling.Auto,
+                TypeNameAssemblyFormatHandling = TypeNameAssemblyFormatHandling.Simple
+            };
+
+            var obj = JsonConvert.DeserializeObject<GameScriptParams>(json, settings);
+
+            if (obj == null)
+            {
+                throw new Exception("Failed deserialize object.");
+            }
+
+            return obj;
+        }
     }
 
     public class GameScriptGameSystem
